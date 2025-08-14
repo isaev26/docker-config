@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  nginx:
+    image: "nginx:stable-alpine"
+    container_name: nginx-container
+    volumes:
+      - ./dockerfiles/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./src:/var/www/laravel/
+    ports:
+      - "80:80"
+    depends_on:
+      - php
+      - mysql
+  php:
+    build:
+      context: dockerfiles
+      dockerfile: /php/php.Dockerfile
+    container_name: php-container
+    volumes:
+      - ./src:/var/www/laravel/
+      - ./dockerfiles/php/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+      - ./dockerfiles/php/error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-container
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    env_file:
+      - ./env/mysql.env
+    volumes:
+      - ./src:/var/www/laravel/
+      - ./dockerfiles/mysql/initdb:/docker-entrypoint-initdb.d:ro
+      - mysql_data:/var/lib/mysql
+  phpmyadmin:
+    image: phpmyadmin
+    container_name: phpmyadmin-container
+    ports:
+      - "8080:80"
+    env_file:
+      - ./env/mysql.env
+    environment:
+      PMA_HOST: mysql
+
+  composer:
+    build:
+      context: dockerfiles
+      dockerfile: composer.Dockerfile
+    container_name: composer-container
+    volumes:
+      - ./src:/var/www/laravel/
+  artisan:
+    build:
+      context: dockerfiles
+      dockerfile: ./php/php.Dockerfile
+    container_name: artisan-container
+    volumes:
+      - ./src:/var/www/laravel/
+    entrypoint: ['php', '/var/www/laravel/artisan']
+    depends_on:
+      - mysql
+      - php
+
+volumes:
+  mysql_data:
